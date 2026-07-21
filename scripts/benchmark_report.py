@@ -16,6 +16,7 @@ from pathlib import Path
 
 from src.common import load_jsonl
 from src.grading import freshqa_metrics, simpleqa_metrics
+from src.report import percentile
 
 
 def _latest(recs: list[dict]) -> list[dict]:
@@ -33,6 +34,17 @@ def _behavior_row(rs: list[dict]) -> str:
     avg_s = sum(r.get("n_searches", 0) for r in ok) / len(ok)
     rw = sum(1 for r in ok if r.get("rewrote_query")) / len(ok)
     return f"{avg_s:.1f} / {rw:.0%}"
+
+
+def _server_latency_cell(rs: list[dict]) -> str:
+    """Server-reported latency P50/P95 (ms) from the search trail's reported_latency_ms.
+    Blank ('—') when the backend reports no server time (e.g. parallel-turbo) or the run
+    predates latency capture (no per-search trail, e.g. imported runs)."""
+    vals = sorted(s["reported_latency_ms"] for r in rs for s in r.get("searches", [])
+                  if s.get("reported_latency_ms") is not None)
+    if not vals:
+        return "—"
+    return f"{percentile(vals, 0.5):.0f} / {percentile(vals, 0.95):.0f}"
 
 
 def build_report(run: Path) -> str:
@@ -58,17 +70,18 @@ def build_report(run: Path) -> str:
         L.append(f"## SimpleQA（{variant}，{n_q} 题）")
         L.append("> 官方指标:correct-rate=正确率;CGA=作答中正确率;**F1=二者调和均值(主排名指标)**。")
         L.append("")
-        L.append("| 排名 | backend | **F1** | 正确率 | CGA | 正确/错误/未答 | 搜索次数/改写率 |")
-        L.append("|--:|---|--:|--:|--:|:--|:--|")
+        L.append("| 排名 | backend | **F1** | 正确率 | CGA | 正确/错误/未答 | 搜索次数/改写率 | 接口耗时P50/P95(ms) |")
+        L.append("|--:|---|--:|--:|--:|:--|:--|--:|")
         rows = []
         for be in backends:
             g = [r["grade"] for r in by_be[be] if r.get("grade_mode") == "simpleqa" and r.get("grade")]
             if g:
                 rows.append((be, simpleqa_metrics(g)))
         for i, (be, m) in enumerate(sorted(rows, key=lambda x: -x[1]["f1"]), 1):
+            sub = [r for r in by_be[be] if r.get("grade_mode") == "simpleqa"]
             L.append(f"| {i} | {be} | **{m['f1']:.1%}** | {m['correct_rate']:.1%} | "
                      f"{m['correct_given_attempted']:.1%} | {m['correct']}/{m['incorrect']}/{m['not_attempted']} "
-                     f"| {_behavior_row([r for r in by_be[be] if r.get('grade_mode')=='simpleqa'])} |")
+                     f"| {_behavior_row(sub)} | {_server_latency_cell(sub)} |")
         L.append("")
 
     # ── FreshQA ──
@@ -77,15 +90,16 @@ def build_report(run: Path) -> str:
         L.append(f"## FreshQA（FreshEval，{n_q} 题）")
         L.append("> 二元 correct/incorrect;准确率带 95% Wilson 置信区间;按 fact_type / false_premise 分项。")
         L.append("")
-        L.append("| 排名 | backend | **准确率 (95% CI)** | n | 搜索次数/改写率 |")
-        L.append("|--:|---|--:|--:|:--|")
+        L.append("| 排名 | backend | **准确率 (95% CI)** | n | 搜索次数/改写率 | 接口耗时P50/P95(ms) |")
+        L.append("|--:|---|--:|--:|:--|--:|")
         fm = {be: freshqa_metrics([{"grade": r["grade"], "meta": r.get("bench_meta", {})}
                                    for r in by_be[be] if r.get("grade_mode") == "freshqa" and r.get("grade")])
               for be in backends if any(r.get("grade_mode") == "freshqa" for r in by_be[be])}
         for i, be in enumerate(sorted(fm, key=lambda b: -fm[b]["accuracy"]), 1):
             m = fm[be]
+            sub = [r for r in by_be[be] if r.get("grade_mode") == "freshqa"]
             L.append(f"| {i} | {be} | **{m['accuracy_ci']}** | {m['n']} "
-                     f"| {_behavior_row([r for r in by_be[be] if r.get('grade_mode')=='freshqa'])} |")
+                     f"| {_behavior_row(sub)} | {_server_latency_cell(sub)} |")
         L.append("")
         # per-category breakdown (backends × fact_type)
         cats = sorted({k for m in fm.values() for k in m["breakdowns"]["fact_type"]})
@@ -117,6 +131,8 @@ def build_report(run: Path) -> str:
     L.append("- SimpleQA:openai/simple-evals A/B/C 协议;F1 = 调和均值(correct-rate, CGA)。")
     L.append("- FreshQA:freshllms/freshqa FreshEval;多答案 ' | ' 拼接;strict 模式不容忍幻觉/过期。")
     L.append("- 搜索次数/改写率 = agent 端到端行为(所有 backend 用同一 agent+预算)。")
+    L.append("- 接口耗时 = 后端接口返回的服务端耗时 P50/P95(reported_latency_ms);留空(—)= 该接口未返回耗时"
+             "(如 parallel-turbo)或该 run 早于耗时采集。端到端往返耗时见 pairwise 报告(report.py)。")
     return "\n".join(L)
 
 

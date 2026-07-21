@@ -91,7 +91,7 @@ python -m src.agent_eval --queries data/freshqa.jsonl \
     --backends octen exa-instant parallel-turbo tavily-ultrafast \
     --k 10 --out results/freshqa --yes
 
-# Reports → SimpleQA F1/CGA · FreshQA accuracy + CI + per-category breakdowns
+# Reports → SimpleQA F1/CGA · FreshQA accuracy + CI + per-category breakdowns · server latency P50/P95
 python -m scripts.benchmark_report --run results/simpleqa_full
 python -m scripts.benchmark_report --run results/freshqa
 ```

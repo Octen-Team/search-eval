@@ -161,7 +161,9 @@ def run_single_one(query: str, backend, k: int) -> dict:
     temperature=0, max_tokens=2048 (minimax reasoning models truncate below that)."""
     resp = backend.search(query, k=k)
     searches = [{"terms": query, "n_results": len(resp.results),
-                 "latency_ms": round(resp.latency_ms, 1), "error": resp.error}]
+                 "latency_ms": round(resp.latency_ms, 1),
+                 "reported_latency_ms": resp.reported_latency_ms,  # server-side; None if not reported
+                 "error": resp.error}]
     if resp.error:
         return {"answer": "", "searches": searches, "forced": False}
     raw = call_llm_text(SINGLE_ANSWER_SYSTEM, build_single_prompt(query, resp.results[:k]),
@@ -313,7 +315,9 @@ def run_agent_one(query: str, backend, k: int, max_searches: int, system: str) -
             terms = str(act.get("query", "")).strip() or query
             resp = backend.search(terms, k=k)
             searches.append({"terms": terms, "n_results": len(resp.results),
-                             "latency_ms": round(resp.latency_ms, 1), "error": resp.error})
+                             "latency_ms": round(resp.latency_ms, 1),
+                             "reported_latency_ms": resp.reported_latency_ms,  # server-side; None if not reported
+                             "error": resp.error})
             transcript.append(f"\nSearch #{len(searches)}: {terms}\nResults:\n{resp.to_judge_text(k)}")
             continue
         if act.get("action") == "answer":

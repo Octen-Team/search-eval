@@ -690,6 +690,18 @@ class TestJudgeProbes:
         assert len(picked) == 1 and picked[0][0] == "q1"
 
 
+class TestBenchmarkLatency:
+    def test_server_latency_cell(self):
+        from scripts.benchmark_report import _server_latency_cell
+        # backend reports server latency → P50/P95
+        assert _server_latency_cell([{"searches": [{"reported_latency_ms": 120.0}]},
+                                     {"searches": [{"reported_latency_ms": 140.0}]}]) == "120 / 140"
+        # backend returns no server time (e.g. parallel) → blank
+        assert _server_latency_cell([{"searches": [{"reported_latency_ms": None}]}]) == "—"
+        # run predates latency capture (no search trail, e.g. imported run) → blank
+        assert _server_latency_cell([{"n_searches": 1}]) == "—"
+
+
 class TestJudgeFamilies:
     def test_agreement_and_flips(self):
         from scripts.judge_families import agreement_stats
