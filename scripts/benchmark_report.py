@@ -37,14 +37,14 @@ def _behavior_row(rs: list[dict]) -> str:
 
 
 def _server_latency_cell(rs: list[dict]) -> str:
-    """Server-reported latency P50/P95 (ms) from the search trail's reported_latency_ms.
+    """Server-reported latency P50/P90 (ms) from the search trail's reported_latency_ms.
     Blank ('—') when the backend reports no server time (e.g. parallel-turbo) or the run
     predates latency capture (no per-search trail, e.g. imported runs)."""
     vals = sorted(s["reported_latency_ms"] for r in rs for s in r.get("searches", [])
                   if s.get("reported_latency_ms") is not None)
     if not vals:
         return "—"
-    return f"{percentile(vals, 0.5):.0f} / {percentile(vals, 0.95):.0f}"
+    return f"{percentile(vals, 0.5):.0f} / {percentile(vals, 0.9):.0f}"
 
 
 def build_report(run: Path) -> str:
@@ -70,7 +70,7 @@ def build_report(run: Path) -> str:
         L.append(f"## SimpleQA（{variant}，{n_q} 题）")
         L.append("> 官方指标:correct-rate=正确率;CGA=作答中正确率;**F1=二者调和均值(主排名指标)**。")
         L.append("")
-        L.append("| 排名 | backend | **F1** | 正确率 | CGA | 正确/错误/未答 | 搜索次数/改写率 | 接口耗时P50/P95(ms) |")
+        L.append("| 排名 | backend | **F1** | 正确率 | CGA | 正确/错误/未答 | 搜索次数/改写率 | 接口耗时P50/P90(ms) |")
         L.append("|--:|---|--:|--:|--:|:--|:--|--:|")
         rows = []
         for be in backends:
@@ -90,7 +90,7 @@ def build_report(run: Path) -> str:
         L.append(f"## FreshQA（FreshEval，{n_q} 题）")
         L.append("> 二元 correct/incorrect;准确率带 95% Wilson 置信区间;按 fact_type / false_premise 分项。")
         L.append("")
-        L.append("| 排名 | backend | **准确率 (95% CI)** | n | 搜索次数/改写率 | 接口耗时P50/P95(ms) |")
+        L.append("| 排名 | backend | **准确率 (95% CI)** | n | 搜索次数/改写率 | 接口耗时P50/P90(ms) |")
         L.append("|--:|---|--:|--:|:--|--:|")
         fm = {be: freshqa_metrics([{"grade": r["grade"], "meta": r.get("bench_meta", {})}
                                    for r in by_be[be] if r.get("grade_mode") == "freshqa" and r.get("grade")])
@@ -131,7 +131,7 @@ def build_report(run: Path) -> str:
     L.append("- SimpleQA:openai/simple-evals A/B/C 协议;F1 = 调和均值(correct-rate, CGA)。")
     L.append("- FreshQA:freshllms/freshqa FreshEval;多答案 ' | ' 拼接;strict 模式不容忍幻觉/过期。")
     L.append("- 搜索次数/改写率 = agent 端到端行为(所有 backend 用同一 agent+预算)。")
-    L.append("- 接口耗时 = 后端接口返回的服务端耗时 P50/P95(reported_latency_ms);留空(—)= 该接口未返回耗时"
+    L.append("- 接口耗时 = 后端接口返回的服务端耗时 P50/P90(reported_latency_ms);留空(—)= 该接口未返回耗时"
              "(如 parallel-turbo)或该 run 早于耗时采集。仅记录接口返回耗时,不回退端到端。")
     return "\n".join(L)
 

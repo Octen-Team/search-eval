@@ -459,9 +459,9 @@ def build(run: Path, qmeta: dict, baseline: Path | None, agent_run: Path | None,
     # 5. latency — API-returned SERVER latency only (octen/exa/tavily). Backends that report no
     #    server time (parallel/brave/perplexity) are left blank; no e2e round-trip substitution.
     if responses:
-        L.append("## 5. Latency P50/P95 (ms) — API-returned server latency (blank if the backend reports none)")
+        L.append("## 5. Latency P50/P90 (ms) — API-returned server latency (blank if the backend reports none)")
         L.append("")
-        L.append("| Backend | latency P50 | latency P95 | n |")
+        L.append("| Backend | latency P50 | latency P90 | n |")
         L.append("|---|--:|--:|--:|")
         srv = defaultdict(list)
         backends_seen = set()
@@ -474,7 +474,7 @@ def build(run: Path, qmeta: dict, baseline: Path | None, agent_run: Path | None,
         for be in sorted(backends_seen):
             s = sorted(srv.get(be, []))
             if s:
-                L.append(f"| {be} | {percentile(s, 0.5):.0f} | {percentile(s, 0.95):.0f} | {len(s)} |")
+                L.append(f"| {be} | {percentile(s, 0.5):.0f} | {percentile(s, 0.9):.0f} | {len(s)} |")
             else:
                 L.append(f"| {be} | — | — | 0 |")
         L.append("")

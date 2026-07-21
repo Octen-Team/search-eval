@@ -156,7 +156,7 @@ def main() -> None:
     #    tavily response_time). Backends that report no server time (parallel/brave/perplexity)
     #    are left blank; we deliberately do NOT substitute the e2e round-trip.
     if responses:
-        print("\n## Latency P50/P95 (ms) — API-returned server latency (blank if the backend reports none)")
+        print("\n## Latency P50/P90 (ms) — API-returned server latency (blank if the backend reports none)")
         srv = defaultdict(list)
         backends_seen = set()
         for r in responses:
@@ -168,7 +168,7 @@ def main() -> None:
         for be in sorted(backends_seen):
             s = sorted(srv.get(be, []))
             if s:
-                print(f"  {be:16s}: latency P50={percentile(s, 0.5):.0f} P95={percentile(s, 0.95):.0f}  (n={len(s)})")
+                print(f"  {be:16s}: latency P50={percentile(s, 0.5):.0f} P90={percentile(s, 0.9):.0f}  (n={len(s)})")
             else:
                 print(f"  {be:16s}: latency —  (API returns no server-side time)")
 
