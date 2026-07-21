@@ -33,15 +33,17 @@ Fast-tier bakeoff on the open benchmarks (2026-07-14), scored with the official 
 `src/grading.py`. Generator + judge = `minimax/minimax-m2.5`; single-shot (1 search/query); fast-tier
 configs (`exa`=instant · `tavily`=ultra-fast · `parallel`=turbo · `octen`=default).
 
-| backend | SimpleQA (4326) | FreshQA (600) |
-|---|--:|--:|
-| **octen** | **95.2%** (F1 96.5) | **55.8%** |
-| exa-instant | 89.2% (F1 92.0) | 52.8% |
-| parallel-turbo | 88.6% (F1 91.3) | 52.8% |
-| tavily-ultrafast | 69.9% (F1 79.5) | 43.2% |
+| backend | SimpleQA (4326) | FreshQA (600) | server latency P50/P90 (ms) |
+|---|--:|--:|--:|
+| **octen** | **95.2%** (F1 96.5) | **55.8%** | **77 / 97** |
+| exa-instant | 89.2% (F1 92.0) | 52.8% | 277 / 338 |
+| parallel-turbo | 88.6% (F1 91.3) | 52.8% | — |
+| tavily-ultrafast | 69.9% (F1 79.5) | 43.2% | 130 / 200 |
 
-Full tables, exact setup, and reproduce steps: **[`docs/benchmarks/`](docs/benchmarks/README.md)**.
-Every number regenerates from run artifacts via `scripts/benchmark_report` — nothing is hand-entered.
+Latency is the **API-returned server time** (search-only probe over the full sets; SimpleQA-set P50/P90
+shown, FreshQA within a few ms); `parallel-turbo` returns none → blank. Full tables, exact setup, and
+reproduce steps: **[`docs/benchmarks/`](docs/benchmarks/README.md)**. Every number regenerates from run
+artifacts via `scripts/benchmark_report`.
 
 ## Requirements
 
