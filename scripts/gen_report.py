@@ -300,11 +300,12 @@ def build_findings(ours: str, pairs: list, by_comp: dict, qmeta: dict, triage: l
                     ["Downrank stale versions of updated stories (crawl-date vs story-development "
                      "signals); this is the freshness/coverage gap surfacing at answer level."]))
 
-    # -- latency (only if we are the slow one) ---------------------------------------------
+    # -- latency (only if we are the slow one) --- API-returned server latency only; backends
+    #    that report none are skipped (no e2e fallback), so this fires only on reported figures
     by_lat = defaultdict(list)
     for (qid, be), rec in resp_by.items():
-        if not rec.get("error"):
-            by_lat[be].append(rec["latency_ms"])
+        if not rec.get("error") and rec.get("reported_latency_ms") is not None:
+            by_lat[be].append(rec["reported_latency_ms"])
     if ours in by_lat and len(by_lat) > 1:
         p50 = {be: percentile(sorted(v), 0.5) for be, v in by_lat.items()}
         best = min(p50[b] for b in p50 if b != ours)
@@ -455,28 +456,27 @@ def build(run: Path, qmeta: dict, baseline: Path | None, agent_run: Path | None,
             L.append(f"| {bold}{be}{bold} | {h1:.0%} | {hk:.0%} | {n} |")
         L.append("")
 
-    # 5. latency — server-reported when the backend exposes it (octen/exa/tavily), else e2e
-    #    round-trip (parallel/brave/perplexity report none); basis labelled so a fair engine-time
-    #    figure is never silently compared against a network-inflated e2e one.
+    # 5. latency — API-returned SERVER latency only (octen/exa/tavily). Backends that report no
+    #    server time (parallel/brave/perplexity) are left blank; no e2e round-trip substitution.
     if responses:
-        L.append("## 5. Latency P50/P95 (ms) — server-reported if available, else e2e round-trip")
+        L.append("## 5. Latency P50/P95 (ms) — API-returned server latency (blank if the backend reports none)")
         L.append("")
-        L.append("| Backend | latency P50 | latency P95 | basis | e2e P50 | n |")
-        L.append("|---|--:|--:|---|--:|--:|")
-        e2e, srv = defaultdict(list), defaultdict(list)
+        L.append("| Backend | latency P50 | latency P95 | n |")
+        L.append("|---|--:|--:|--:|")
+        srv = defaultdict(list)
+        backends_seen = set()
         for r in responses:
             if r.get("error"):
                 continue
-            e2e[r["backend"]].append(r["latency_ms"])
+            backends_seen.add(r["backend"])
             if r.get("reported_latency_ms") is not None:
                 srv[r["backend"]].append(r["reported_latency_ms"])
-        for be in sorted(e2e):
-            e = sorted(e2e[be])
+        for be in sorted(backends_seen):
             s = sorted(srv.get(be, []))
-            eff = s if s else e            # no server latency reported → fall back to e2e
-            basis = "server" if s else "e2e"
-            L.append(f"| {be} | {percentile(eff, 0.5):.0f} | {percentile(eff, 0.95):.0f} | {basis} "
-                     f"| {percentile(e, 0.5):.0f} | {len(e)} |")
+            if s:
+                L.append(f"| {be} | {percentile(s, 0.5):.0f} | {percentile(s, 0.95):.0f} | {len(s)} |")
+            else:
+                L.append(f"| {be} | — | — | 0 |")
         L.append("")
 
     # 6. triage

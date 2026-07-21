@@ -47,8 +47,8 @@ def summarize_run(run: Path) -> dict:
     lat = {}
     by_be_lat = defaultdict(list)
     for r in responses:
-        if not r.get("error"):
-            by_be_lat[r["backend"]].append(r["latency_ms"])
+        if not r.get("error") and r.get("reported_latency_ms") is not None:
+            by_be_lat[r["backend"]].append(r["reported_latency_ms"])  # API-returned only; blank backends omitted
     for be, ls in by_be_lat.items():
         ls.sort()
         lat[be] = round(percentile(ls, 0.5), 0)

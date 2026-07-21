@@ -113,8 +113,8 @@ def run_episode(q: dict, backends: dict, ours: str, competitors: list[str], k: i
         resp = be.search(q["query"], k=k)
         responses[name] = resp
         rec = {
-            "qid": q["qid"], "backend": name, "latency_ms": round(resp.latency_ms, 1),
-            "reported_latency_ms": resp.reported_latency_ms,  # server-side (octen/exa/tavily); None otherwise
+            "qid": q["qid"], "backend": name,
+            "reported_latency_ms": resp.reported_latency_ms,  # API-returned server latency; None if the backend reports none
             "error": resp.error, "n_results": len(resp.results),
             "results": [asdict(r) | {"raw": None} for r in resp.results[:k]],
         }

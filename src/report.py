@@ -152,28 +152,25 @@ def main() -> None:
             h1, hk, n = anchor_hit_rates(recs)
             print(f"  {be:8s}: hit@1={h1:.0%}  hit@k={hk:.0%}  (n={n})")
 
-    # 5. latency — the reported metric is SERVER-reported when the backend exposes it
-    #    (octen meta.latency / exa searchTime / tavily response_time), else FALLS BACK to the
-    #    end-to-end client round-trip (parallel/brave/perplexity report no server time). e2e is
-    #    always shown for reference and the basis is labelled [server]/[e2e], so a fair engine-time
-    #    figure is never silently compared against a network-inflated e2e one — read [e2e] rows as
-    #    "network + engine from this client's vantage", not pure engine speed.
+    # 5. latency — API-returned SERVER latency only (octen meta.latency / exa searchTime /
+    #    tavily response_time). Backends that report no server time (parallel/brave/perplexity)
+    #    are left blank; we deliberately do NOT substitute the e2e round-trip.
     if responses:
-        print("\n## Latency P50/P95 (ms) — 'latency' = server-reported if available, else e2e round-trip")
-        e2e, srv = defaultdict(list), defaultdict(list)
+        print("\n## Latency P50/P95 (ms) — API-returned server latency (blank if the backend reports none)")
+        srv = defaultdict(list)
+        backends_seen = set()
         for r in responses:
             if r.get("error"):
                 continue
-            e2e[r["backend"]].append(r["latency_ms"])
+            backends_seen.add(r["backend"])
             if r.get("reported_latency_ms") is not None:
                 srv[r["backend"]].append(r["reported_latency_ms"])
-        for be in sorted(e2e):
-            e = sorted(e2e[be])
+        for be in sorted(backends_seen):
             s = sorted(srv.get(be, []))
-            eff = s if s else e            # no server latency reported → use e2e round-trip
-            basis = "server" if s else "e2e"
-            print(f"  {be:16s}: latency P50={percentile(eff, 0.5):.0f} P95={percentile(eff, 0.95):.0f} [{basis}]"
-                  f"   ·   e2e P50={percentile(e, 0.5):.0f} P95={percentile(e, 0.95):.0f}  (n={len(e)})")
+            if s:
+                print(f"  {be:16s}: latency P50={percentile(s, 0.5):.0f} P95={percentile(s, 0.95):.0f}  (n={len(s)})")
+            else:
+                print(f"  {be:16s}: latency —  (API returns no server-side time)")
 
     # 6. baseline diff
     if args.baseline:

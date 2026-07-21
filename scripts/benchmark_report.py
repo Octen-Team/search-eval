@@ -132,7 +132,7 @@ def build_report(run: Path) -> str:
     L.append("- FreshQA:freshllms/freshqa FreshEval;多答案 ' | ' 拼接;strict 模式不容忍幻觉/过期。")
     L.append("- 搜索次数/改写率 = agent 端到端行为(所有 backend 用同一 agent+预算)。")
     L.append("- 接口耗时 = 后端接口返回的服务端耗时 P50/P95(reported_latency_ms);留空(—)= 该接口未返回耗时"
-             "(如 parallel-turbo)或该 run 早于耗时采集。端到端往返耗时见 pairwise 报告(report.py)。")
+             "(如 parallel-turbo)或该 run 早于耗时采集。仅记录接口返回耗时,不回退端到端。")
     return "\n".join(L)
 
 

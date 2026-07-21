@@ -464,7 +464,7 @@ class TestAgentEval:
         monkeypatch.setattr(agent_eval, "run_agent_one",
                             lambda *a, **k: {"answer": "I could not find this information",
                                              "searches": [{"terms": "x", "n_results": 0,
-                                                           "latency_ms": 0.0, "error": "429 too many requests"}],
+                                                           "reported_latency_ms": None, "error": "429 too many requests"}],
                                              "forced": False})
         rec = agent_eval.run_episode({"qid": "q1", "query": "q", "gold": {"answer": "42"}},
                                      "exa", object(), 8, 3, "sys")
