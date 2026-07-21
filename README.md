@@ -73,20 +73,27 @@ cp .env.example .env          # then fill in keys for the stages you run
 
 ### 1 · Score a backend on an open benchmark
 
-The fastest path to a comparable number. `agent_eval` runs each query through a backend and grades
-the answer; the `meta.benchmark` tag auto-selects the official grader.
+`agent_eval` runs each query through a backend and grades the answer; the `meta.benchmark` tag
+auto-selects the official grader. **These are the exact commands behind
+[Results we've run](#results-weve-run)** — benchmark sets default to the single-shot scaffold +
+`minimax/minimax-m2.5` for generation and grading, so a fresh clone reproduces the table:
 
 ```bash
 # Build the sets from the bundled CSVs → data/{simpleqa_verified,simpleqa_full,freshqa}.jsonl
 python -m scripts.load_benchmarks
 
-# Run a 100-query sample across the four fast tiers
-python -m src.agent_eval --queries data/simpleqa_verified.jsonl \
+# SimpleQA full (4326 q) + FreshQA (600 q) across the four fast tiers.
+# The full 4326 × 4 backends is large — add --limit N for a quick sample.
+python -m src.agent_eval --queries data/simpleqa_full.jsonl \
     --backends octen exa-instant parallel-turbo tavily-ultrafast \
-    --k 10 --limit 100 --out results/simpleqa_$(date +%Y%m%d) --yes
+    --k 10 --out results/simpleqa_full --yes
+python -m src.agent_eval --queries data/freshqa.jsonl \
+    --backends octen exa-instant parallel-turbo tavily-ultrafast \
+    --k 10 --out results/freshqa --yes
 
-# Report → SimpleQA F1/CGA · FreshQA accuracy + CI + per-category breakdowns
-python -m scripts.benchmark_report --run results/simpleqa_$(date +%Y%m%d)
+# Reports → SimpleQA F1/CGA · FreshQA accuracy + CI + per-category breakdowns
+python -m scripts.benchmark_report --run results/simpleqa_full
+python -m scripts.benchmark_report --run results/freshqa
 ```
 
 **Scaffold** (`--scaffold`, default is per-set): `single` (benchmark default) = raw question → 1
