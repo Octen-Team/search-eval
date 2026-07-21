@@ -63,69 +63,75 @@ Every number regenerates from run artifacts via `scripts/benchmark_report` — n
 
 ## Usage
 
-All commands run from the repo root. Start with the fully-mocked test suite (no keys needed):
+Install, then smoke-test with the fully-mocked suite (no keys needed); commands run from the repo root:
 
 ```bash
+pip install -r requirements.txt
 python -m pytest tests/ -q
+cp .env.example .env          # then fill in keys for the stages you run
 ```
 
-**Run an open-source benchmark** (fastest path to a number; `meta.benchmark` auto-routes the grader):
+### 1 · Score a backend on an open benchmark
+
+The fastest path to a comparable number. `agent_eval` runs each query through a backend and grades
+the answer; the `meta.benchmark` tag auto-selects the official grader.
 
 ```bash
-# Build the selectable sets from the bundled CSVs (data/datasets/):
-#   data/simpleqa_verified.jsonl (1000) · data/simpleqa_full.jsonl (4326) · data/freshqa.jsonl (600)
+# Build the sets from the bundled CSVs → data/{simpleqa_verified,simpleqa_full,freshqa}.jsonl
 python -m scripts.load_benchmarks
 
-# Run. Benchmark sets DEFAULT to the single-shot scaffold — the reproducible standard protocol:
-# raw question verbatim → ONE search → evidence-classification answer prompt → official grader
-# (temp=0, max_tokens=2048; full-length octen highlights + uncapped parallel excerpts are
-# auto-enabled). Numbers are reproducible run-over-run within ±3pp.
+# Run a 100-query sample across the four fast tiers
 python -m src.agent_eval --queries data/simpleqa_verified.jsonl \
     --backends octen exa-instant parallel-turbo tavily-ultrafast \
     --k 10 --limit 100 --out results/simpleqa_$(date +%Y%m%d) --yes
 
-# Optional: agent scaffold (multi-turn query-rewriting agent, ≤3 searches) — measures the
-# end-to-end value to an agent instead of raw retrieval. NOT comparable with single-shot
-# numbers; agent iteration compensates weak retrieval and compresses backend gaps.
-python -m src.agent_eval --queries data/freshqa.jsonl \
-    --backends octen exa-instant parallel-turbo tavily-ultrafast \
-    --scaffold agent --k 8 --max-searches 3 --out results/freshqa_agent_$(date +%Y%m%d) --yes
-
-# Report: SimpleQA F1/CGA table; FreshQA accuracy + CI + per-category breakdowns
+# Report → SimpleQA F1/CGA · FreshQA accuracy + CI + per-category breakdowns
 python -m scripts.benchmark_report --run results/simpleqa_$(date +%Y%m%d)
 ```
 
-Scaffold rules of thumb: **single** (benchmark default) = raw natural-question retrieval quality,
-externally comparable, quote this one; **agent** (self-built-set default) = agent-in-the-loop
-end-to-end. Always report which scaffold produced a number — they differ by 10-20pp.
-> Override models per run with `--agent-model` / `--grader-model` (flags beat `$AGENT_MODEL`/`$GRADER_MODEL` beat per-set default). Chosen models are printed and recorded in `run_meta.json`.
+**Scaffold** (`--scaffold`, default is per-set): `single` (benchmark default) = raw question → 1
+search → answer; measures *retrieval quality* and is externally comparable — quote this one. `agent`
+(self-built default) = multi-turn query-rewriting agent; measures *end-to-end* value and compresses
+backend gaps. They differ by 10–20pp, so always state which. Override models with `--agent-model` /
+`--grader-model` (flag > `$AGENT_MODEL`/`$GRADER_MODEL` > per-set default; recorded in `run_meta.json`).
 
-**Build & grow an in-house set** (a 200-query set already ships in `data/main_queries.jsonl`; order
-matters: synth → gold → rubrics → review → merge):
+### 2 · Build your own query set
+
+A 200-query set already ships in `data/main_queries.jsonl`. To grow it, the order is fixed —
+**synth → gold → rubrics → review → merge**:
 
 ```bash
 python -m src.query_synth --topic "vector databases" --n 15 --vertical tech_code \
     --out data/synth_gen.jsonl --dedup-against data/main_queries.jsonl   # or query_intake for raw lists
-python -m src.gold_resolver  --queries data/synth_gen.jsonl --concurrency 4
-python -m src.rubric_gen     --queries data/synth_gen.jsonl --concurrency 4
-python -m src.rubric_review  --queries data/synth_gen.jsonl --concurrency 4 --yes
+python -m src.gold_resolver --queries data/synth_gen.jsonl --concurrency 4
+python -m src.rubric_gen    --queries data/synth_gen.jsonl --concurrency 4
+python -m src.rubric_review --queries data/synth_gen.jsonl --concurrency 4 --yes
 cat data/synth_gen.jsonl >> data/main_queries.jsonl
 ```
 
-**Run the eval & read the report:**
+### 3 · Evaluate on your own set & read the report
+
+Two independent lanes over the same set: **SERP-level pairwise** (`run_eval`) and **end-to-end agent**
+(`agent_eval`).
 
 ```bash
-# Full run (drop --skip-judge for the judge; add it to smoke-test backend field mappings first)
+RUN=results/run_$(date +%Y%m%d)      # reused across the pairwise-lane commands below
+
+# Pairwise lane: fetch every backend, then a blind position-swapped judge
+# (add --skip-judge first to smoke-test backend field mappings without spending judge tokens)
 python -m src.run_eval --queries data/main_queries.jsonl \
-    --ours octen --competitors exa brave --k 10 --out results/run_$(date +%Y%m%d)
-# Weakness map (win-rate + Wilson CI + slices + dimension gaps); add --baseline for a regression diff
-python -m src.report --run results/run_20260721 --queries data/main_queries.jsonl
-# Failure attribution; then a shareable Markdown report
-python -m src.triage --run results/run_20260721 --probe --concurrency 8
-python -m scripts.gen_report --run results/run_20260721 --queries data/main_queries.jsonl --cases 5
-# End-to-end agent eval (the only variable across backends is the search service)
-python -m src.agent_eval --queries data/benchmark_queries.jsonl --backends octen exa \
-    --k 8 --max-searches 3 --out results/agent_run_$(date +%Y%m%d) --limit 10
+    --ours octen --competitors exa brave --k 10 --out "$RUN"
+
+# Weakness map: win-rate + Wilson CI + slice + dimension gaps (add --baseline for a regression diff)
+python -m src.report --run "$RUN" --queries data/main_queries.jsonl
+
+# Attribute failures, then assemble a shareable Markdown report
+python -m src.triage --run "$RUN" --probe --concurrency 8
+python -m scripts.gen_report --run "$RUN" --queries data/main_queries.jsonl --cases 5
+
+# Agent lane (end-to-end; defaults to --scaffold agent on self-built sets)
+python -m src.agent_eval --queries data/main_queries.jsonl --backends octen exa \
+    --k 8 --max-searches 3 --out results/agent_$(date +%Y%m%d) --limit 10
 ```
 
 ## License
