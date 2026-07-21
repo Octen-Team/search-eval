@@ -1,0 +1,5 @@
+# Runtime: the framework deliberately keeps a single third-party dependency.
+requests>=2.31
+
+# Dev / CI (unit tests are fully mocked — no API keys needed):
+pytest>=8.0

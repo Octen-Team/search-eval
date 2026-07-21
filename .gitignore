@@ -1,0 +1,15 @@
+.env
+results/
+__pycache__/
+*.pyc
+*.zip
+plan/
+.DS_Store
+.idea/
+# generated benchmark query sets (build output of scripts/load_benchmarks.py; source CSVs are in data/datasets/)
+data/simpleqa_verified.jsonl
+data/simpleqa_full.jsonl
+data/freshqa.jsonl
+
+# local trend artifact (not shipped)
+data/run_history.jsonl

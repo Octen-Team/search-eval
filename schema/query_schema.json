@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SearchEvalQuery",
+  "description": "Label taxonomy for the web-search eval query set. One JSON object per query (stored as JSONL). All slice analysis depends on these labels; new labels must stay backward compatible.",
+  "type": "object",
+  "required": ["qid", "query", "intent", "difficulty", "freshness", "vertical", "language", "form", "source"],
+  "properties": {
+    "qid": {
+      "type": "string",
+      "description": "Unique ID; suggested format q-{vertical}-{seq}, e.g. q-tech-0042"
+    },
+    "query": {
+      "type": "string",
+      "description": "The raw query text, kept in its original form without cleaning"
+    },
+    "intent": {
+      "type": "string",
+      "enum": ["navigational", "informational", "transactional", "multi_hop_research"],
+      "description": "navigational=find a specific site/page; informational=find facts/knowledge; transactional=find an executable action (download/purchase/API); multi_hop_research=requires synthesis across multiple sources"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["head", "torso", "tail"],
+      "description": "head=popular high-frequency; torso=mid-frequency; tail=long-tail / rare entities / deep pages"
+    },
+    "freshness": {
+      "type": "string",
+      "enum": ["evergreen", "recent", "realtime"],
+      "description": "evergreen=answer stays stable long-term; recent=information from the last few weeks to months; realtime=minute/hour granularity (stock prices, scores, breaking news)"
+    },
+    "vertical": {
+      "type": "string",
+      "enum": ["tech_code", "academic", "news", "ecommerce", "local", "medical_legal", "finance", "entertainment", "general"],
+      "description": "Vertical. medical_legal is a separate category because it has the highest authority requirements and different scoring criteria"
+    },
+    "language": {
+      "type": "string",
+      "description": "BCP-47, e.g. zh-CN / en / ja. For cross-language queries (a Chinese query about English content) use zh-CN>en"
+    },
+    "form": {
+      "type": "string",
+      "enum": ["keyword", "natural_question", "agent_generated"],
+      "description": "keyword=human keyword style; natural_question=natural-language long question; agent_generated=real agent queries sampled from API traffic logs (their distribution differs significantly from humans'; must form a separate stratum)"
+    },
+    "source": {
+      "type": "string",
+      "enum": ["traffic_log", "public_benchmark", "synthetic", "manual"],
+      "description": "Origin. traffic_log samples must be anonymized; public_benchmark must record provenance in meta.benchmark"
+    },
+    "gold": {
+      "type": "object",
+      "description": "Optional. Required for objective anchor queries; may be empty for subjective pairwise queries",
+      "properties": {
+        "answer": { "type": "string", "description": "Objective answer (QA type)" },
+        "gold_urls": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of canonical URLs (navigational type). Matching rules live in anchor_scorer: three levels supported — exact / prefix / domain"
+        },
+        "url_match": {
+          "type": "string",
+          "enum": ["exact", "prefix", "domain"],
+          "default": "prefix"
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "description": "Free-form extension area: benchmark provenance, sampling batch, annotator, notes",
+      "additionalProperties": true
+    }
+  }
+}
